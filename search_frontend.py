@@ -3,6 +3,8 @@ from inverted_index_gcp import InvertedIndex
 from BM25_from_index import *
 from cosine_similarity import *
 from tools import *
+import gensim.downloader as api
+import math
 
 
 class MyFlaskApp(Flask):
@@ -28,31 +30,61 @@ def initial():
     global doc_to_title
     global pagerank
     global pageview
+    global wv
     global weight_title
     global weight_body
-    global k1
-    global k3
-    global b
+    global k1_body
+    global k3_body
+    global b_body
+    global k1_title
+    global k3_title
+    global b_title
+    global weight_similar_query
+
     weight_title = 0.5
     weight_body = 1 - weight_title
-    k1 = 1.5
-    k3 = 2
-    b = 0.75
+    k1_body = 1.5
+    k3_body = 2
+    b_body = 0.75
+    k1_title = 1.5
+    k3_title = 2
+    b_title = 0.75
+    weight_similar_query = 0.35
     idx_title = InvertedIndex.read_index('title_index', 'title')
     idx_body = InvertedIndex.read_index('body_index', 'body')
     idx_anchor = InvertedIndex.read_index('anchor_index', 'anchor')
     doc_to_title = InvertedIndex.read_index('.', 'doc_to_title')
     pagerank = InvertedIndex.read_index('.', 'pagerank')
     pageview = InvertedIndex.read_index('.', 'pageviews-202108-user')
+    wv = api.load('glove-wiki-gigaword-50')
+
+
+# @app.route("/doc2vec")
+# def doc2vec():
+#     res = []
+#     query = request.args.get('query', '')
+#     if len(query) == 0:
+#         return jsonify(res)
+#     # BEGIN SOLUTION
+#     query = tokenize2(query)
+#
+#     print(doc2vec.wv.most_similar(positive=[doc2vec.infer_vector(query)], topn=40))
+#
+#     # END SOLUTION
+#     return jsonify(res)
 
 
 @app.route("/params", methods=['POST'])
 def params():
     global weight_title
     global weight_body
-    global k1
-    global k3
-    global b
+    global k1_body
+    global k3_body
+    global b_body
+    global k1_title
+    global k3_title
+    global b_title
+    global weight_similar_query
     res = []
     params = request.get_json()
 
@@ -61,9 +93,13 @@ def params():
 
     weight_title = params[0]
     weight_body = 1 - weight_title
-    k1 = params[1]
-    k3 = params[2]
-    b = params[3]
+    k1_body = params[1]
+    k3_body = params[2]
+    b_body = params[3]
+    k1_title = params[4]
+    k3_title = params[5]
+    b_title = params[6]
+    weight_similar_query = params[7]
 
     return jsonify(res)
 
@@ -93,13 +129,21 @@ def search():
     # BEGIN SOLUTION
     query = tokenize(query)
 
-    # read posting lists from disk
-    bm25_title = BM25_from_index(idx_title, k1, k3, b)
-    # booleanTitle = get_topN_tf_for_titles(query, idx_title)
-    bm25_body = BM25_from_index(idx_body, k1, k3, b)
-    # res = merge_results(dict(booleanTitle), bm25_body.search_body(query), weight_title, weight_body)
-    res = merge_results(bm25_title.search_title(query), bm25_body.search_body(query), weight_title, weight_body)
+    query_similar = wv.most_similar(positive=query, topn=math.ceil(((1 / len(query)) * 5)))
+    query_similar_tokenize = dict([(tup[0], tup[1] * weight_similar_query) for tup in query_similar if tup[1] > 0.7])
 
+    # read posting lists from disk
+    bm25_title = BM25_from_index(idx_title, k1_title, k3_title, b_title)
+    # booleanTitle = get_topN_tf_for_titles(query, idx_title)
+    bm25_body = BM25_from_index(idx_body, k1_body, k3_body, b_body)
+    # res = merge_results(dict(booleanTitle), bm25_body.search_body(query), weight_title, weight_body)
+    query = Counter(query)
+
+    res = merge_results(bm25_title.search_title(query | query_similar_tokenize), bm25_body.search_body(query), weight_title, weight_body)
+
+    # res2 = merge_results(bm25_title.search_title(query_similar_tokenize), bm25_body.search_body(query_similar_tokenize), weight_title, weight_body)
+    #
+    # res = merge_results(dict(res1), dict(res2), 0.75, 0.25)
 
     # cosine = get_topN_cosine_similarity_score_for_query(query, idx_body)
     # res = merge_results(bm25_title.search_title(query), dict(cosine), weight_title, weight_body)
@@ -133,6 +177,7 @@ def search_body():
     # BEGIN SOLUTION
 
     query = tokenize(query)
+    query = Counter(query)
 
     res = get_topN_cosine_similarity_score_for_query(query, idx_body)
     res = get_titles_from_id(res, doc_to_title)
@@ -164,6 +209,7 @@ def search_title():
         return jsonify(res)
     # BEGIN SOLUTION
     query = tokenize(query)
+    query = Counter(query)
 
     res = get_topN_tf_for_titles(query, idx_title)
     res = get_titles_from_id(res, doc_to_title)
@@ -197,6 +243,7 @@ def search_anchor():
     # BEGIN SOLUTION
 
     query = tokenize(query)
+    query = Counter(query)
     res = get_tf_for_anchor(query, idx_anchor)
     res = get_titles_from_id(res, doc_to_title)
 

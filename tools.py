@@ -36,4 +36,4 @@ def tokenize(text):
 
     all_stopwords = english_stopwords.union(corpus_stopwords)
 
-    return Counter([token.group() for token in RE_WORD.finditer(text.lower()) if token.group() not in all_stopwords])
+    return [token.group() for token in RE_WORD.finditer(text.lower()) if token.group() not in all_stopwords]

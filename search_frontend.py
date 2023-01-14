@@ -59,21 +59,6 @@ def initial():
     wv = api.load('glove-wiki-gigaword-50')
 
 
-# @app.route("/doc2vec")
-# def doc2vec():
-#     res = []
-#     query = request.args.get('query', '')
-#     if len(query) == 0:
-#         return jsonify(res)
-#     # BEGIN SOLUTION
-#     query = tokenize2(query)
-#
-#     print(doc2vec.wv.most_similar(positive=[doc2vec.infer_vector(query)], topn=40))
-#
-#     # END SOLUTION
-#     return jsonify(res)
-
-
 @app.route("/params", methods=['POST'])
 def params():
     global weight_title

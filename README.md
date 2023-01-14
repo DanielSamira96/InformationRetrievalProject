@@ -41,8 +41,3 @@ this class implements the efficient cosine similarity calculation we saw in clas
 
 ● *tools.py*: this class implements our helper methods that we used for implementing the search functions of our engine (tokenizing function etc.)
 
-
-
-
-
- Readme.md file that explains the code structure, organization, and functionality of each major piece in your implementation.
